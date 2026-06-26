@@ -12,6 +12,8 @@ function applyCssVars(s) {
   root.style.setProperty('--bg-opacity', s.opacity);
   root.style.setProperty('--bg-blur', s.blur + 'px');
   root.style.setProperty('--font-size', s.fontSize + 'px');
+  root.style.setProperty('--text-color', s.textColor);
+  root.style.setProperty('--accent', s.accentColor);
 }
 
 function buildSlots(count) {
@@ -25,7 +27,8 @@ function buildSlots(count) {
 }
 
 function renderMessage(text) {
-  lyricsContainer.innerHTML = `<div class="status-message">${escapeHtml(text)}</div>`;
+  const html = text.split('\n').map(escapeHtml).join('<br>');
+  lyricsContainer.innerHTML = `<div class="status-message">${html}</div>`;
   renderedSlotCount = 0;
 }
 
@@ -55,7 +58,7 @@ function renderPlaying(payload) {
 
     const isActive = lineIndex === payload.activeIndex;
     const distance = Math.abs(i - center);
-    const fade = Math.max(0.22, 1 - distance * 0.18);
+    const fade = Math.max(0.45, 1 - distance * 0.12);
 
     if (isActive) {
       slot.className = 'line active';
@@ -83,7 +86,7 @@ function handleNowPlaying(payload) {
 
   switch (payload.status) {
     case 'idle':
-      renderMessage('Nothing playing');
+      renderMessage(payload.reason ? `Nothing playing\n${payload.reason}` : 'Nothing playing');
       break;
     case 'loading':
       renderMessage('Finding lyrics…');
@@ -112,6 +115,8 @@ function fillSettingsForm(s) {
   document.getElementById('fontSize').value = s.fontSize;
   document.getElementById('fontSizeVal').textContent = s.fontSize + 'px';
   document.getElementById('showTrackInfo').checked = s.showTrackInfo;
+  document.getElementById('textColor').value = s.textColor;
+  document.getElementById('accentColor').value = s.accentColor;
   document.getElementById('spotifyClientId').value = s.spotifyClientId || '';
 }
 
@@ -121,6 +126,8 @@ function wireSettingsForm() {
   const blur = document.getElementById('blur');
   const fontSize = document.getElementById('fontSize');
   const showTrackInfo = document.getElementById('showTrackInfo');
+  const textColor = document.getElementById('textColor');
+  const accentColor = document.getElementById('accentColor');
   const spotifyClientId = document.getElementById('spotifyClientId');
 
   lineCount.addEventListener('input', async () => {
@@ -151,6 +158,16 @@ function wireSettingsForm() {
     settings = await window.api.setSettings({ showTrackInfo: showTrackInfo.checked });
   });
 
+  textColor.addEventListener('input', async () => {
+    settings = await window.api.setSettings({ textColor: textColor.value });
+    applyCssVars(settings);
+  });
+
+  accentColor.addEventListener('input', async () => {
+    settings = await window.api.setSettings({ accentColor: accentColor.value });
+    applyCssVars(settings);
+  });
+
   document.getElementById('spotifyConnectBtn').addEventListener('click', async () => {
     const status = document.getElementById('spotifyStatus');
     status.textContent = 'Opening browser…';
@@ -163,8 +180,21 @@ function wireSettingsForm() {
     document.getElementById('spotifyStatus').textContent = 'Disconnected';
   });
 
-  settingsBtn.addEventListener('click', () => {
+  settingsBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
     settingsPanel.classList.toggle('hidden');
+  });
+
+  document.getElementById('close-btn').addEventListener('click', (event) => {
+    event.stopPropagation();
+    window.api.quitApp();
+  });
+
+  // Click anywhere else on the overlay closes the settings panel.
+  document.addEventListener('click', (event) => {
+    if (settingsPanel.classList.contains('hidden')) return;
+    if (settingsPanel.contains(event.target)) return;
+    settingsPanel.classList.add('hidden');
   });
 }
 

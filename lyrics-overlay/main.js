@@ -17,6 +17,7 @@ const state = {
     accessTokenExpiresAt: 0,
     connected: false,
     lastError: null,
+    rateLimitedUntil: 0,
     lastPoll: null, // { trackId, trackName, artistName, durationMs, progressMs, isPlaying, fetchedAtMs }
   },
   youtube: {
@@ -102,6 +103,7 @@ async function ensureSpotifyToken() {
     state.spotify.lastError = null;
     return state.spotify.accessToken;
   } catch (e) {
+    console.error('[Spotify] token refresh failed:', e.message);
     state.spotify.lastError = e.message;
     state.spotify.connected = false;
     return null;
@@ -109,6 +111,9 @@ async function ensureSpotifyToken() {
 }
 
 async function pollSpotify() {
+  if (state.spotify.rateLimitedUntil && Date.now() < state.spotify.rateLimitedUntil) {
+    return; // still backing off from a previous 429
+  }
   const token = await ensureSpotifyToken();
   if (!token) return;
   try {
@@ -128,7 +133,15 @@ async function pollSpotify() {
     };
     state.spotify.lastError = null;
   } catch (e) {
-    state.spotify.lastError = e.message;
+    if (e.code === 'RATE_LIMITED') {
+      const waitMs = Math.max(5000, (e.retryAfterSec || 5) * 1000);
+      state.spotify.rateLimitedUntil = Date.now() + waitMs;
+      state.spotify.lastError = `Rate limited by Spotify — retrying in ${Math.round(waitMs / 1000)}s`;
+      console.error(`[Spotify] 429 rate limited — backing off ${Math.round(waitMs / 1000)}s`);
+    } else {
+      console.error('[Spotify] poll failed:', e.message);
+      state.spotify.lastError = e.message;
+    }
   }
 }
 
@@ -245,7 +258,13 @@ function findActiveIndex(lines, positionMs) {
 function tick() {
   const source = getActiveSource();
   if (!source) {
-    sendToRenderer({ status: 'idle' });
+    let reason = null;
+    if (!cfg.spotifyRefreshToken) {
+      reason = 'Spotify not connected (and no YouTube tab detected)';
+    } else if (state.spotify.lastError) {
+      reason = `Spotify error: ${state.spotify.lastError}`;
+    }
+    sendToRenderer({ status: 'idle', reason });
     return;
   }
 
@@ -346,6 +365,10 @@ function registerIpc() {
     mainWindow.setIgnoreMouseEvents(clickThroughEnabled, { forward: true });
     return clickThroughEnabled;
   });
+
+  ipcMain.handle('quit-app', () => {
+    app.quit();
+  });
 }
 
 // ---------------- App lifecycle ----------------
@@ -356,7 +379,7 @@ app.whenReady().then(() => {
   registerIpc();
   startBridgeServer();
 
-  setInterval(pollSpotify, 1000);
+  setInterval(pollSpotify, 2000);
   setInterval(tick, 200);
 
   globalShortcut.register('CommandOrControl+Alt+L', () => {

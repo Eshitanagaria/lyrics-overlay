@@ -3,6 +3,7 @@
   --bg-blur: 14px;
   --font-size: 22px;
   --accent: #1ed760;
+  --text-color: #ffffff;
 }
 
 * { box-sizing: border-box; }
@@ -60,6 +61,16 @@ html, body {
 }
 #settings-btn:hover { color: #fff; }
 
+#close-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 13px;
+  margin-left: 6px;
+}
+#close-btn:hover { color: #ff5c5c; }
+
 #lyrics-container {
   flex: 1;
   display: flex;
@@ -80,7 +91,7 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: var(--font-size);
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--text-color);
   transition: opacity 0.25s ease, transform 0.25s ease, font-size 0.25s ease;
 }
 
@@ -89,7 +100,11 @@ html, body {
 .line.active {
   font-size: calc(var(--font-size) * 1.15);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--text-color);
+}
+
+.line-base {
+  opacity: 0.55;
 }
 
 .line-fill {
@@ -100,6 +115,7 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  opacity: 1;
 }
 
 .idle-message, .status-message {
@@ -141,6 +157,15 @@ html, body {
   border-radius: 6px;
   color: #fff;
   padding: 4px 6px;
+}
+.settings-row input[type="color"] {
+  flex: 1.3;
+  height: 26px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  background: none;
+  padding: 0;
+  cursor: pointer;
 }
 .settings-row button {
   background: var(--accent);

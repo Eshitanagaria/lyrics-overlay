@@ -7,5 +7,6 @@ contextBridge.exposeInMainWorld('api', {
   disconnectSpotify: () => ipcRenderer.invoke('spotify-disconnect'),
   getSpotifyStatus: () => ipcRenderer.invoke('get-spotify-status'),
   toggleClickThrough: () => ipcRenderer.invoke('toggle-click-through'),
+  quitApp: () => ipcRenderer.invoke('quit-app'),
   onNowPlaying: (cb) => ipcRenderer.on('now-playing', (event, data) => cb(data)),
 });

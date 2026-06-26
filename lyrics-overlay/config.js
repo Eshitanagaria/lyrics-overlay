@@ -8,6 +8,8 @@ const DEFAULTS = {
   blur: 14,            // backdrop blur in px
   fontSize: 22,
   showTrackInfo: true,
+  textColor: '#ffffff',
+  accentColor: '#1ed760',
   spotifyClientId: '',
   spotifyRefreshToken: null,
 };

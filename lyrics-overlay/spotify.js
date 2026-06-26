@@ -7,6 +7,8 @@ const { shell } = require('electron');
 const REDIRECT_URI = 'http://127.0.0.1:8898/callback';
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
+let pendingServer = null;
+
 function base64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -29,6 +31,18 @@ function startLogin(clientId) {
       reject(new Error('Missing Spotify Client ID'));
       return;
     }
+    if (/^https?:\/\//i.test(clientId) || clientId.includes('/callback') || clientId.includes(':')) {
+      reject(new Error('That looks like a redirect URI, not a Client ID. Copy the "Client ID" value from your app\'s page on developer.spotify.com/dashboard instead.'));
+      return;
+    }
+
+    // If a previous attempt never completed, its server is still holding
+    // the port open — close it before starting a fresh one.
+    if (pendingServer) {
+      try { pendingServer.close(); } catch { /* ignore */ }
+      pendingServer = null;
+    }
+
     const verifier = generateVerifier();
     const challenge = generateChallenge(verifier);
     const state = base64url(crypto.randomBytes(16));
@@ -53,17 +67,24 @@ function startLogin(clientId) {
 
       if (err || !code || returnedState !== state) {
         res.end('<html><body style="font-family:sans-serif;padding:40px"><h2>Spotify login failed.</h2><p>You can close this tab and try again.</p></body></html>');
+        pendingServer = null;
         server.close();
         reject(new Error(err || 'Spotify auth failed or state mismatch'));
         return;
       }
 
       res.end('<html><body style="font-family:sans-serif;padding:40px"><h2>Spotify connected ✅</h2><p>You can close this tab and go back to the overlay app.</p></body></html>');
+      pendingServer = null;
       server.close();
       exchangeCode(clientId, code, verifier).then(resolve).catch(reject);
     });
 
-    server.on('error', reject);
+    server.on('error', (err) => {
+      pendingServer = null;
+      reject(err);
+    });
+
+    pendingServer = server;
 
     server.listen(8898, '127.0.0.1', () => {
       const authUrl = new URL('https://accounts.spotify.com/authorize');
@@ -79,7 +100,10 @@ function startLogin(clientId) {
 
     // Don't hang forever if the user never completes login.
     setTimeout(() => {
-      server.close();
+      if (pendingServer === server) {
+        pendingServer = null;
+        server.close();
+      }
     }, 5 * 60 * 1000);
   });
 }
@@ -122,6 +146,13 @@ async function getCurrentlyPlaying(accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (res.status === 204) return null;
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get('Retry-After') || '5', 10);
+    const err = new Error('Rate limited by Spotify (429)');
+    err.code = 'RATE_LIMITED';
+    err.retryAfterSec = retryAfter;
+    throw err;
+  }
   if (!res.ok) throw new Error('Spotify API error: ' + res.status);
   const text = await res.text();
   if (!text) return null;
