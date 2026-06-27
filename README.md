@@ -85,6 +85,22 @@ Click ⚙ → paste your Client ID → **Connect Spotify** → approve in the br
 
 The window is draggable from its top strip and resizable from its edges. There's also a ✕ button on the overlay itself to quit.
 
+## ⬇️ Download (no setup)
+
+Don't want to install Node or build anything? Grab the prebuilt app:
+
+**[Download Lyrify for macOS →](https://github.com/TheNandinee/Lyrify/releases/latest)**
+
+> **Apple Silicon (M1/M2/M3) only.** Intel Macs need to build from source (see below).
+
+After downloading:
+
+1. Open the `.dmg` and drag **Lyrify** into your Applications folder.
+2. The app is not code-signed, so macOS will block it the first time. Open **Terminal** and run this once: `xattr -cr /Applications/Lyrify.app`
+3. Launch Lyrify from Spotlight or Applications. Click the ⚙ to connect Spotify (one-time, ~2 min — see Setup below).
+
+Building from source is still fully supported and is the only option on Intel Macs or if you want to modify the code — see **Quick start** below.
+
 ## ❓ FAQ
 
 **Will this break if a lot of people use it / am I going to run into Spotify's rate limits?**
