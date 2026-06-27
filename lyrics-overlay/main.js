@@ -381,33 +381,50 @@ function registerIpc() {
 
 // ---------------- App lifecycle ----------------
 
-app.whenReady().then(() => {
-  cfg = config.load();
-  state.spotify.rateLimitedUntil = cfg.spotifyRateLimitedUntil || 0;
-  createWindow();
-  registerIpc();
-  startBridgeServer();
+// Prevent accidentally running two copies at once (easy to do since the window
+// is hidden from the taskbar) — a second launch just focuses the existing one
+// instead of starting a second poller that doubles API requests.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
-  setInterval(pollSpotify, 2000);
-  setInterval(tick, 200);
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
 
-  globalShortcut.register('CommandOrControl+Alt+L', () => {
-    if (mainWindow.isVisible()) mainWindow.hide();
-    else mainWindow.show();
+  app.whenReady().then(() => {
+    cfg = config.load();
+    state.spotify.rateLimitedUntil = cfg.spotifyRateLimitedUntil || 0;
+    createWindow();
+    registerIpc();
+    startBridgeServer();
+
+    setInterval(pollSpotify, 2000);
+    setInterval(tick, 200);
+
+    globalShortcut.register('CommandOrControl+Alt+L', () => {
+      if (mainWindow.isVisible()) mainWindow.hide();
+      else mainWindow.show();
+    });
+    globalShortcut.register('CommandOrControl+Alt+K', () => {
+      clickThroughEnabled = !clickThroughEnabled;
+      mainWindow.setIgnoreMouseEvents(clickThroughEnabled, { forward: true });
+    });
+    globalShortcut.register('CommandOrControl+Alt+Q', () => {
+      app.quit();
+    });
   });
-  globalShortcut.register('CommandOrControl+Alt+K', () => {
-    clickThroughEnabled = !clickThroughEnabled;
-    mainWindow.setIgnoreMouseEvents(clickThroughEnabled, { forward: true });
-  });
-  globalShortcut.register('CommandOrControl+Alt+Q', () => {
+
+  app.on('window-all-closed', () => {
     app.quit();
   });
-});
 
-app.on('window-all-closed', () => {
-  app.quit();
-});
-
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
-});
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+  });
+}
